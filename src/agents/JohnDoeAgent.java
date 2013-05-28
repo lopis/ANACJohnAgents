@@ -32,12 +32,105 @@ public class JohnDoeAgent extends Agent
 	/** Note: {@link JohnDoeAgent} does not account for the discount factor in its computations */ 
 	private static double MINIMUM_BID_UTILITY = 0.0;
 
+	private ArrayList<ComparableBid> bids = new ArrayList<ComparableBid>();
+	
+	private double flexibility=0;
+	
+	private Bid bestOpBid= new Bid();
+	
+	private int numOfOpBids=0;
+	
 	/**
 	 * init is called when a next session starts with the same opponent.
 	 */
 	public void init()
 	{
 		MINIMUM_BID_UTILITY = utilitySpace.getReservationValueUndiscounted();
+		
+		ArrayList<Issue> issues=utilitySpace.getDomain().getIssues();
+		//Random randomnr= new Random();
+		// create a random bid with utility>MINIMUM_BID_UTIL.
+		// note that this may never succeed if you set MINIMUM too high!!!
+		// in that case we will search for a bid till the time is up (3 minutes)
+		// but this is just a simple agent.
+		Bid bid=null;
+		//do 
+		//{
+			HashMap<Integer, ArrayList<Value>> values = new HashMap<Integer,ArrayList<Value>>(); // pairs <issuenumber,chosen value string>
+			for(Issue lIssue:issues) 
+			{
+				switch(lIssue.getType()) {
+				case DISCRETE:
+					IssueDiscrete lIssueDiscrete = (IssueDiscrete)lIssue;
+					//System.out.println("Number of Outcomes on Issue "+lIssueDiscrete.getNumber()+": "+lIssueDiscrete.getNumberOfValues());
+					//int optionIndex=randomnr.nextInt(lIssueDiscrete.getNumberOfValues());
+					ArrayList<Value> vals = new ArrayList<Value>();
+					for (int i = 0; i < lIssueDiscrete.getNumberOfValues(); i++) {
+						//System.out.println("Discrete: "+lIssue.getNumber()+" And this is :"+lIssueDiscrete.getValue(i));
+						vals.add(lIssueDiscrete.getValue(i));
+						//bid=new Bid(utilitySpace.getDomain(),values);
+						//bids.add(bid);
+					}
+					//System.out.println("Issue saved "+lIssueDiscrete.getNumber());
+					values.put(lIssueDiscrete.getNumber(), vals);
+					break;
+				/*case REAL:
+					IssueReal lIssueReal = (IssueReal)lIssue;
+					int optionInd = randomnr.nextInt(lIssueReal.getNumberOfDiscretizationSteps()-1);
+					System.out.println("Real: "+lIssueReal.getNumber()+" And this is "+new ValueReal(lIssueReal.getLowerBound() + (lIssueReal.getUpperBound()-lIssueReal.getLowerBound())*(double)(optionInd)/(double)(lIssueReal.getNumberOfDiscretizationSteps())));
+					values.put(lIssueReal.getNumber(), new ValueReal(lIssueReal.getLowerBound() + (lIssueReal.getUpperBound()-lIssueReal.getLowerBound())*(double)(optionInd)/(double)(lIssueReal.getNumberOfDiscretizationSteps())));
+					break;
+				case INTEGER:
+					IssueInteger lIssueInteger = (IssueInteger)lIssue;
+					int optionIndex2 = lIssueInteger.getLowerBound() + randomnr.nextInt(lIssueInteger.getUpperBound()-lIssueInteger.getLowerBound());
+					System.out.println("Integer: "+lIssueInteger.getNumber()+" And This is :"+new ValueInteger(optionIndex2));
+					values.put(lIssueInteger.getNumber(), new ValueInteger(optionIndex2));
+					break;*/
+				default: try {
+						throw new Exception("issue type "+lIssue.getType()+" not supported by SimpleAgent2");
+					} catch (Exception e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				}
+			}
+			//System.out.println("bidsmuitantes");
+			ArrayList<HashMap<Integer, Value>> bidList = new ArrayList<HashMap<Integer, Value>>();
+			for (int i = 0; i < utilitySpace.getDomain().getNumberOfPossibleBids(); i++) {
+				HashMap<Integer, Value> newbid = new HashMap<Integer, Value>();
+				//System.out.println("Values Size:"+values.size());
+				for (Integer issueID : values.keySet()) {
+					newbid.put(issueID,values.get(issueID).get(0));
+					//System.out.println(issueID+":"+values.get(issueID).get(0));
+				}
+				bidList.add(newbid);
+			}
+			//System.out.println("bidsantes");
+			int counter=0;	
+			for (Integer issueID : values.keySet()) {
+				for (int j = 0; j < values.get(issueID).size(); j++) {
+					bidList.get(counter).put(issueID,values.get(issueID).get(j));
+					counter++;
+				}
+			}
+			/*System.out.println("bids");
+			for (int i = 0; i < bidList.size(); i++) {
+				System.out.println("Bid number "+i);
+				for (Integer issueID : values.keySet()) {
+					System.out.println("\t Issue "+issueID+":"+bidList.get(i).get(issueID));
+				}
+			}*/
+			for (int i = 0; i < bidList.size(); i++) {
+				try {
+					bid=new Bid(utilitySpace.getDomain(),bidList.get(i));
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				bids.add(new ComparableBid(bid));
+			}
+			
+		//} while (utilitySpace.getUtilityWithDiscount(bid, time) < MINIMUM_BID_UTILITY);
 	}
 
 	public static String getVersion() { return "3.1"; }
@@ -66,6 +159,10 @@ public class JohnDoeAgent extends Agent
 			else if(actionOfPartner instanceof Offer)
 			{
 				Bid partnerBid = ((Offer)actionOfPartner).getBid();
+				if(numOfOpBids==0)
+					bestOpBid=partnerBid;
+				else if(utilitySpace.getUtilityWithDiscount(partnerBid, time)>=utilitySpace.getUtilityWithDiscount(bestOpBid, time))
+					bestOpBid=partnerBid;
 				double offeredUtilFromOpponent = utilitySpace.getUtilityWithDiscount(partnerBid, time);
 				// get current time
 				action = chooseBidAction(time);
@@ -88,7 +185,11 @@ public class JohnDoeAgent extends Agent
 
 	private boolean isAcceptable(double offeredUtilFromOpponent, double myOfferedUtil, double time) throws Exception
 	{
-		
+		if(offeredUtilFromOpponent==myOfferedUtil)
+			return true;
+		if(1-time <0.01)
+			return true;
+		//int newflexibility = 
 		/*double P = Paccept(offeredUtilFromOpponent,time);
 		if (P > Math.random())
 			return true;*/		
@@ -103,7 +204,7 @@ public class JohnDoeAgent extends Agent
 	private Action chooseBidAction(double time) 
 	{
 		Bid nextBid=null ;
-		try { nextBid = getBid(time); }
+		try { nextBid = getBid(); }
 		catch (Exception e) { System.out.println("Problem with received bid:"+e.getMessage()+". cancelling bidding"); }
 		if (nextBid == null) return (new Accept(getAgentID()));                
 		return (new Offer(getAgentID(), nextBid));
@@ -114,87 +215,14 @@ public class JohnDoeAgent extends Agent
 	 * @throws Exception if we can't compute the utility (eg no evaluators have been set)
 	 * or when other evaluators than a DiscreteEvaluator are present in the util space.
 	 */
-	private Bid getBid(double time) throws Exception
+	private Bid getBid()
 	{
-		ArrayList<Issue> issues=utilitySpace.getDomain().getIssues();
-		//Random randomnr= new Random();
-		// create a random bid with utility>MINIMUM_BID_UTIL.
-		// note that this may never succeed if you set MINIMUM too high!!!
-		// in that case we will search for a bid till the time is up (3 minutes)
-		// but this is just a simple agent.
-		Bid bid=null;
-		//do 
-		//{
-			HashMap<Integer, ArrayList<Value>> values = new HashMap<Integer,ArrayList<Value>>(); // pairs <issuenumber,chosen value string>
-			for(Issue lIssue:issues) 
-			{
-				switch(lIssue.getType()) {
-				case DISCRETE:
-					IssueDiscrete lIssueDiscrete = (IssueDiscrete)lIssue;
-					System.out.println("Number of Outcomes on Issue "+lIssueDiscrete.getNumber()+": "+lIssueDiscrete.getNumberOfValues());
-					//int optionIndex=randomnr.nextInt(lIssueDiscrete.getNumberOfValues());
-					ArrayList<Value> vals = new ArrayList<Value>();
-					for (int i = 0; i < lIssueDiscrete.getNumberOfValues(); i++) {
-						System.out.println("Discrete: "+lIssue.getNumber()+" And this is :"+lIssueDiscrete.getValue(i));
-						vals.add(lIssueDiscrete.getValue(i));
-						//bid=new Bid(utilitySpace.getDomain(),values);
-						//bids.add(bid);
-					}
-					System.out.println("Issue saved "+lIssueDiscrete.getNumber());
-					values.put(lIssueDiscrete.getNumber(), vals);
-					break;
-				/*case REAL:
-					IssueReal lIssueReal = (IssueReal)lIssue;
-					int optionInd = randomnr.nextInt(lIssueReal.getNumberOfDiscretizationSteps()-1);
-					System.out.println("Real: "+lIssueReal.getNumber()+" And this is "+new ValueReal(lIssueReal.getLowerBound() + (lIssueReal.getUpperBound()-lIssueReal.getLowerBound())*(double)(optionInd)/(double)(lIssueReal.getNumberOfDiscretizationSteps())));
-					values.put(lIssueReal.getNumber(), new ValueReal(lIssueReal.getLowerBound() + (lIssueReal.getUpperBound()-lIssueReal.getLowerBound())*(double)(optionInd)/(double)(lIssueReal.getNumberOfDiscretizationSteps())));
-					break;
-				case INTEGER:
-					IssueInteger lIssueInteger = (IssueInteger)lIssue;
-					int optionIndex2 = lIssueInteger.getLowerBound() + randomnr.nextInt(lIssueInteger.getUpperBound()-lIssueInteger.getLowerBound());
-					System.out.println("Integer: "+lIssueInteger.getNumber()+" And This is :"+new ValueInteger(optionIndex2));
-					values.put(lIssueInteger.getNumber(), new ValueInteger(optionIndex2));
-					break;*/
-				default: throw new Exception("issue type "+lIssue.getType()+" not supported by SimpleAgent2");
-				}
-			}
-			System.out.println("bidsmuitantes");
-			ArrayList<HashMap<Integer, Value>> bidList = new ArrayList<HashMap<Integer, Value>>();
-			for (int i = 0; i < utilitySpace.getDomain().getNumberOfPossibleBids(); i++) {
-				HashMap<Integer, Value> newbid = new HashMap<Integer, Value>();
-				System.out.println("Values Size:"+values.size());
-				for (Integer issueID : values.keySet()) {
-					newbid.put(issueID,values.get(issueID).get(0));
-					System.out.println(issueID+":"+values.get(issueID).get(0));
-				}
-				bidList.add(newbid);
-			}
-			System.out.println("bidsantes");
-			int counter=0;	
-			for (Integer issueID : values.keySet()) {
-				for (int j = 0; j < values.get(issueID).size(); j++) {
-					bidList.get(counter).put(issueID,values.get(issueID).get(j));
-					counter++;
-				}
-			}
-			System.out.println("bids");
-			for (int i = 0; i < bidList.size(); i++) {
-				System.out.println("Bid number "+i);
-				for (Integer issueID : values.keySet()) {
-					System.out.println("\t Issue "+issueID+":"+bidList.get(i).get(issueID));
-				}
-			}
-			
-			ArrayList<ComparableBid> bids = new ArrayList<ComparableBid>();
-			for (int i = 0; i < bidList.size(); i++) {
-				bid=new Bid(utilitySpace.getDomain(),bidList.get(i));
-				bids.add(new ComparableBid(bid));
-			}
-			Collections.sort(bids);
-			
-		//} while (utilitySpace.getUtilityWithDiscount(bid, time) < MINIMUM_BID_UTILITY);
-
-		return bids.get(0).bid;
+		Collections.sort(bids);
+		/*double time = timeline.getTime();
+		for (int i = 0; i < bids.size(); i++) {
+			System.out.println(utilitySpace.getUtilityWithDiscount(bids.get(i).bid,time));
+		}*/
+		return bids.get(bids.size()-1).bid;
 	}
 	
 	private class ComparableBid implements Comparable<ComparableBid>{
@@ -207,7 +235,7 @@ public class JohnDoeAgent extends Agent
 		@Override
 		public int compareTo(ComparableBid b) {
 			double time = timeline.getTime();
-			return (int) (utilitySpace.getUtilityWithDiscount(b.bid, time) - utilitySpace.getUtilityWithDiscount(this.bid, time))*10;
+			return (int)(utilitySpace.getUtilityWithDiscount(this.bid, time)*1000) - (int)(utilitySpace.getUtilityWithDiscount(b.bid, time)*1000);
 		}
 		
 	}
