@@ -26,7 +26,7 @@ import negotiator.issue.ValueReal;
  * 
  * Random Walker, Zero Intelligence Agent
  */
-public class JohnDoeAgent extends Agent
+public class JohnGreedyAgent extends Agent
 {
 	private Action actionOfPartner=null;
 	/** Note: {@link JohnDoeAgent} does not account for the discount factor in its computations */ 
@@ -167,7 +167,7 @@ public class JohnDoeAgent extends Agent
 	@Override
 	public String getName()
 	{
-		return "John Doe Agent";
+		return "John Greedy Agent";
 	}
 
 	public void ReceiveMessage(Action opponentAction) 
@@ -189,10 +189,10 @@ public class JohnDoeAgent extends Agent
 			{
 				Bid partnerBid = ((Offer)actionOfPartner).getBid();
 				if(numOfOpBids==0)
-					 {
+					{
 						bestOpBid=partnerBid;
 						numOfOpDifBids++;
-					}
+					} 
 				else if(utilitySpace.getUtilityWithDiscount(partnerBid, time)>utilitySpace.getUtilityWithDiscount(bestOpBid, time))
 					{
 						bestOpBid=partnerBid;
@@ -211,7 +211,6 @@ public class JohnDoeAgent extends Agent
 					action = new Accept(getAgentID());
 				
 			}
-			sleep(0.005); // just for fun
 		} catch (Exception e) { 
 			System.out.println("Exception in ChooseAction:"+e.getMessage());
 			action=new Accept(getAgentID()); // best guess if things go wrong. 
@@ -223,16 +222,13 @@ public class JohnDoeAgent extends Agent
 	{
 		if(offeredUtilFromOpponent>=myOfferedUtil)
 			return true;
-		if(1-time <0.01)
-			return true;
+		/*if(1-time <0.01)
+			return true;*/
 		expectedUtility = Paccept(myOfferedUtil,time);
 		double P = Paccept(offeredUtilFromOpponent,time);
 		//System.out.println("PAccept is "+P);
 		if (P > expectedUtility)
-			{
-				System.out.println("Accepting cause P is "+P+":"+offeredUtilFromOpponent+"And expectedUtility is "+expectedUtility+":"+myOfferedUtil);
-				return true;		
-			}
+			return true;	
 		return false;
 	}
 
@@ -258,18 +254,13 @@ public class JohnDoeAgent extends Agent
 	private Bid getBid()
 	{
 		Collections.sort(bids);
-		/*System.out.println("---------------------------------------------------------------------bids");
-		for (int i = 0; i < bids.size(); i++) {
-			System.out.println("Bid number "+i);
-				System.out.println(bids.get(i).bid);
-		}*/
 		/*double time = timeline.getTime();
 		for (int i = 0; i < bids.size(); i++) {
 			System.out.println(utilitySpace.getUtilityWithDiscount(bids.get(i).bid,time));
 		}*/
 		double time = timeline.getTime();
-		if(1-time <0.02 && numOfOpBids>0)
-			return bestOpBid;
+		/*if(1-time <0.02 && numOfOpBids>0)
+			return bestOpBid;*/
 		if(numOfOpDifBids>1)
 		{
 			counter--;
@@ -280,7 +271,7 @@ public class JohnDoeAgent extends Agent
 			return bids.get(counter).bid;
 		}
 		
-		if((1-time) <0.5 )
+		/*if((1-time) <0.5 )
 		{
 			counter--;
 			if(counter<=0)
@@ -288,13 +279,14 @@ public class JohnDoeAgent extends Agent
 			if(counter<(bids.size())/2)
 				counter=bids.size()-1;
 			return bids.get(counter).bid;
-		}
+		}*/
 		
 		Bid sendBid = bids.get(bids.size()-1).bid;
 		
 		//System.out.println(sendBid);
 		
-		return bids.get(bids.size()-1).bid;
+		
+		return sendBid;
 	}
 	
 	private class ComparableBid implements Comparable<ComparableBid>{
@@ -337,3 +329,4 @@ public class JohnDoeAgent extends Agent
 
 	double sq(double x) { return x*x; }
 }
+
