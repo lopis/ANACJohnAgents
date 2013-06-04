@@ -6,6 +6,9 @@ import java.util.HashMap;
 import java.util.Random;
 import java.util.Vector;
 
+
+
+
 import negotiator.Agent;
 import negotiator.Bid;
 import negotiator.actions.Accept;
@@ -36,7 +39,10 @@ public class JohnGreedyAgent extends Agent
 	
 	private double expectedUtility=1;
 	
-	private int counter=0;
+	private double counter=1.0;
+	
+	private int prevpos=0;
+	
 	
 	private Bid bestOpBid= new Bid();
 	
@@ -44,13 +50,10 @@ public class JohnGreedyAgent extends Agent
 	
 	private int numOfOpDifBids=0;
 	
-	/**
-	 * init is called when a next session starts with the same opponent.
-	 */
+
 	public void init()
 	{
 		MINIMUM_BID_UTILITY = utilitySpace.getReservationValueUndiscounted();
-		
 		ArrayList<Issue> issues=utilitySpace.getDomain().getIssues();
 		//Random randomnr= new Random();
 		// create a random bid with utility>MINIMUM_BID_UTIL.
@@ -63,6 +66,15 @@ public class JohnGreedyAgent extends Agent
 		HashMap<Integer,Integer> counterbids= new HashMap<Integer,Integer>();	
 		HashMap<Integer,Integer> max= new HashMap<Integer,Integer>();
 			HashMap<Integer, ArrayList<Value>> values = new HashMap<Integer,ArrayList<Value>>(); // pairs <issuenumber,chosen value string>
+			long possibilities = utilitySpace.getDomain().getNumberOfPossibleBids();
+			int maxvalue = 0;
+			if(possibilities>50000)
+				{
+					possibilities=50000;
+					for (; (Math.pow(maxvalue, utilitySpace.getDomain().getIssues().size()))<50000; maxvalue++) {
+						
+					}
+				}
 			for(Issue lIssue:issues) 
 			{
 				switch(lIssue.getType()) {
@@ -73,6 +85,8 @@ public class JohnGreedyAgent extends Agent
 					//int optionIndex=randomnr.nextInt(lIssueDiscrete.getNumberOfValues());
 					ArrayList<Value> vals = new ArrayList<Value>();
 					for (int i = 0; i < lIssueDiscrete.getNumberOfValues(); i++) {
+						if(possibilities>50000 && i>=maxvalue)
+							break;
 						//System.out.println("Discrete: "+lIssue.getNumber()+" And this is :"+lIssueDiscrete.getValue(i));
 						vals.add(lIssueDiscrete.getValue(i));
 						//bid=new Bid(utilitySpace.getDomain(),values);
@@ -104,7 +118,7 @@ public class JohnGreedyAgent extends Agent
 			}
 			//System.out.println("bidsmuitantes");
 			ArrayList<HashMap<Integer, Value>> bidList = new ArrayList<HashMap<Integer, Value>>();
-			for (int i = 0; i < utilitySpace.getDomain().getNumberOfPossibleBids(); i++) {
+			for (int i = 0; i < possibilities; i++) {
 				HashMap<Integer, Value> newbid = new HashMap<Integer, Value>();
 				//System.out.println("Values Size:"+values.size());
 				for (Integer issueID : values.keySet()) {
@@ -119,7 +133,7 @@ public class JohnGreedyAgent extends Agent
 				hashvalue.add(issueID);
 			}
 			//System.out.println("Test2");
-			for (int i = 0; i < bidList.size(); i++) {
+			for (int i = 0; i < possibilities; i++) {
 				//System.out.println("For bid "+i+" Sequence:");
 				for (Integer issueID : values.keySet()) {
 					//System.out.println("\t Issue "+issueID+" : "+values.get(issueID).get(counter.get(issueID)));
@@ -158,8 +172,9 @@ public class JohnGreedyAgent extends Agent
 				}
 				bids.add(new ComparableBid(bid));
 			}
-			
 		//} while (utilitySpace.getUtilityWithDiscount(bid, time) < MINIMUM_BID_UTILITY);
+			
+			Collections.sort(bids);
 	}
 
 	public static String getVersion() { return "3.1"; }
@@ -189,10 +204,10 @@ public class JohnGreedyAgent extends Agent
 			{
 				Bid partnerBid = ((Offer)actionOfPartner).getBid();
 				if(numOfOpBids==0)
-					{
+					 {
 						bestOpBid=partnerBid;
 						numOfOpDifBids++;
-					} 
+					}
 				else if(utilitySpace.getUtilityWithDiscount(partnerBid, time)>utilitySpace.getUtilityWithDiscount(bestOpBid, time))
 					{
 						bestOpBid=partnerBid;
@@ -221,22 +236,32 @@ public class JohnGreedyAgent extends Agent
 	private boolean isAcceptable(double offeredUtilFromOpponent, double myOfferedUtil, double time) throws Exception
 	{
 		if(offeredUtilFromOpponent>=myOfferedUtil)
-			return true;
-		/*if(1-time <0.01)
-			return true;*/
-		expectedUtility = Paccept(myOfferedUtil,time);
+			{
+			System.out.println("Accepting cause His Offer is Better Than Mine!");
+				return true;
+			}
+		if((1-time) <0.005)
+			{
+			 int pos = (int) Math.ceil(0.75*bids.size()-1);
+			 if(offeredUtilFromOpponent>=utilitySpace.getUtilityWithDiscount(bids.get(pos).bid, time))
+			 	{
+				 System.out.println("Accepting cause Time is Running Out!"); 
+				 return true;
+			 	}
+			}
+		//expectedUtility = Paccept(myOfferedUtil,time);
 		double P = Paccept(offeredUtilFromOpponent,time);
-		//System.out.println("PAccept is "+P);
-		if (P > expectedUtility)
-			return true;	
+		int pos = (int) Math.ceil(0.9*bids.size()-1);
+		
+		if (P == 1)
+			{
+				System.out.println("Accepting cause P is "+P+":"+offeredUtilFromOpponent+"And expectedUtility is "+expectedUtility+":"+myOfferedUtil);
+				return true;		
+			}
 		return false;
 	}
 
-	/**
-	 * Wrapper for getRandomBid, for convenience.
-	 * @return new Action(Bid(..)), with bid utility > MINIMUM_BID_UTIL.
-	 * If a problem occurs, it returns an Accept() action.
-	 */
+
 	private Action chooseBidAction(double time) 
 	{
 		Bid nextBid=null ;
@@ -246,47 +271,47 @@ public class JohnGreedyAgent extends Agent
 		return (new Offer(getAgentID(), nextBid));
 	}
 
-	/**
-	 * @return a random bid with high enough utility value.
-	 * @throws Exception if we can't compute the utility (eg no evaluators have been set)
-	 * or when other evaluators than a DiscreteEvaluator are present in the util space.
-	 */
+
 	private Bid getBid()
 	{
-		Collections.sort(bids);
-		/*double time = timeline.getTime();
-		for (int i = 0; i < bids.size(); i++) {
-			System.out.println(utilitySpace.getUtilityWithDiscount(bids.get(i).bid,time));
-		}*/
 		double time = timeline.getTime();
-		/*if(1-time <0.02 && numOfOpBids>0)
-			return bestOpBid;*/
-		if(numOfOpDifBids>1)
+		if(1-time <0.005)
+			{
+			 int pos = (int) Math.ceil(0.75*bids.size()-1);
+			 if(utilitySpace.getUtilityWithDiscount(bestOpBid, time)>=utilitySpace.getUtilityWithDiscount(bids.get(pos).bid, time))
+			 		{
+				 		System.out.println("Accepting cause Time is Running Out!");
+				 		return bestOpBid;
+			 		}
+			}
+		
+		if((1-time) <0.1 )
 		{
-			counter--;
-			if(counter<=0)
-				counter=bids.size()-1;
-			if(counter<(bids.size())/2)
-				counter=bids.size()-1;
-			return bids.get(counter).bid;
+			if(counter<0.9)
+				counter=1;
+			else
+			{
+				counter=0.9+(1.0-time);
+			}
+			int pos = (int) Math.ceil(counter*bids.size()-1);
+			if(pos==prevpos)
+			{
+				if(pos>(int)bids.size()/2)
+					pos=prevpos-1;
+					prevpos=pos;
+			}
+			return bids.get(pos).bid;
 		}
 		
-		/*if((1-time) <0.5 )
-		{
+		else{
 			counter--;
 			if(counter<=0)
 				counter=bids.size()-1;
-			if(counter<(bids.size())/2)
+			if(counter<(Math.ceil(0.9*bids.size()-1)))
 				counter=bids.size()-1;
-			return bids.get(counter).bid;
-		}*/
+			return bids.get( (int)counter).bid;
+		}
 		
-		Bid sendBid = bids.get(bids.size()-1).bid;
-		
-		//System.out.println(sendBid);
-		
-		
-		return sendBid;
 	}
 	
 	private class ComparableBid implements Comparable<ComparableBid>{
@@ -304,18 +329,7 @@ public class JohnGreedyAgent extends Agent
 		
 	}
 
-	/**
-	 * This function determines the accept probability for an offer.
-	 * At t=0 it will prefer high-utility offers.
-	 * As t gets closer to 1, it will accept lower utility offers with increasing probability.
-	 * it will never accept offers with utility 0.
-	 * @param u is the utility 
-	 * @param t is the time as fraction of the total available time 
-	 * (t=0 at start, and t=1 at end time)
-	 * @return the probability of an accept at time t
-	 * @throws Exception if you use wrong values for u or t.
-	 * 
-	 */
+
 	double Paccept(double u, double t1) throws Exception
 	{
 		double t=t1*t1*t1; // steeper increase when deadline approaches.

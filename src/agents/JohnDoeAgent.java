@@ -36,7 +36,9 @@ public class JohnDoeAgent extends Agent
 	
 	private double expectedUtility=1;
 	
-	private int counter=0;
+	private double counter=1.0;
+	
+	private int prevpos=0;
 	
 	private Bid bestOpBid= new Bid();
 	
@@ -50,7 +52,6 @@ public class JohnDoeAgent extends Agent
 	public void init()
 	{
 		MINIMUM_BID_UTILITY = utilitySpace.getReservationValueUndiscounted();
-		
 		ArrayList<Issue> issues=utilitySpace.getDomain().getIssues();
 		//Random randomnr= new Random();
 		// create a random bid with utility>MINIMUM_BID_UTIL.
@@ -63,21 +64,32 @@ public class JohnDoeAgent extends Agent
 		HashMap<Integer,Integer> counterbids= new HashMap<Integer,Integer>();	
 		HashMap<Integer,Integer> max= new HashMap<Integer,Integer>();
 			HashMap<Integer, ArrayList<Value>> values = new HashMap<Integer,ArrayList<Value>>(); // pairs <issuenumber,chosen value string>
-			for(Issue lIssue:issues) 
+			long possibilities = utilitySpace.getDomain().getNumberOfPossibleBids();
+			int maxvalue = 0;
+			if(possibilities>50000)
 			{
-				switch(lIssue.getType()) {
-				case DISCRETE:
-					IssueDiscrete lIssueDiscrete = (IssueDiscrete)lIssue;
-					counterbids.put(lIssueDiscrete.getNumber(), 0);
-					//System.out.println("Number of Outcomes on Issue "+lIssueDiscrete.getNumber()+": "+lIssueDiscrete.getNumberOfValues());
-					//int optionIndex=randomnr.nextInt(lIssueDiscrete.getNumberOfValues());
-					ArrayList<Value> vals = new ArrayList<Value>();
-					for (int i = 0; i < lIssueDiscrete.getNumberOfValues(); i++) {
-						//System.out.println("Discrete: "+lIssue.getNumber()+" And this is :"+lIssueDiscrete.getValue(i));
-						vals.add(lIssueDiscrete.getValue(i));
-						//bid=new Bid(utilitySpace.getDomain(),values);
-						//bids.add(bid);
-					}
+				possibilities=50000;
+				for (; (Math.pow(maxvalue, utilitySpace.getDomain().getIssues().size()))<50000; maxvalue++) {
+					
+				}
+			}
+		for(Issue lIssue:issues) 
+		{
+			switch(lIssue.getType()) {
+			case DISCRETE:
+				IssueDiscrete lIssueDiscrete = (IssueDiscrete)lIssue;
+				counterbids.put(lIssueDiscrete.getNumber(), 0);
+				//System.out.println("Number of Outcomes on Issue "+lIssueDiscrete.getNumber()+": "+lIssueDiscrete.getNumberOfValues());
+				//int optionIndex=randomnr.nextInt(lIssueDiscrete.getNumberOfValues());
+				ArrayList<Value> vals = new ArrayList<Value>();
+				for (int i = 0; i < lIssueDiscrete.getNumberOfValues(); i++) {
+					if(possibilities>50000 && i>=maxvalue)
+						break;
+					//System.out.println("Discrete: "+lIssue.getNumber()+" And this is :"+lIssueDiscrete.getValue(i));
+					vals.add(lIssueDiscrete.getValue(i));
+					//bid=new Bid(utilitySpace.getDomain(),values);
+					//bids.add(bid);
+				}
 					max.put(lIssueDiscrete.getNumber(), vals.size());
 					//System.out.println("Issue saved "+lIssueDiscrete.getNumber());
 					values.put(lIssueDiscrete.getNumber(), vals);
@@ -104,7 +116,7 @@ public class JohnDoeAgent extends Agent
 			}
 			//System.out.println("bidsmuitantes");
 			ArrayList<HashMap<Integer, Value>> bidList = new ArrayList<HashMap<Integer, Value>>();
-			for (int i = 0; i < utilitySpace.getDomain().getNumberOfPossibleBids(); i++) {
+			for (int i = 0; i < possibilities; i++) {
 				HashMap<Integer, Value> newbid = new HashMap<Integer, Value>();
 				//System.out.println("Values Size:"+values.size());
 				for (Integer issueID : values.keySet()) {
@@ -119,7 +131,7 @@ public class JohnDoeAgent extends Agent
 				hashvalue.add(issueID);
 			}
 			//System.out.println("Test2");
-			for (int i = 0; i < bidList.size(); i++) {
+			for (int i = 0; i < possibilities; i++) {
 				//System.out.println("For bid "+i+" Sequence:");
 				for (Integer issueID : values.keySet()) {
 					//System.out.println("\t Issue "+issueID+" : "+values.get(issueID).get(counter.get(issueID)));
@@ -158,8 +170,9 @@ public class JohnDoeAgent extends Agent
 				}
 				bids.add(new ComparableBid(bid));
 			}
-			
 		//} while (utilitySpace.getUtilityWithDiscount(bid, time) < MINIMUM_BID_UTILITY);
+			
+			Collections.sort(bids);
 	}
 
 	public static String getVersion() { return "3.1"; }
@@ -211,7 +224,6 @@ public class JohnDoeAgent extends Agent
 					action = new Accept(getAgentID());
 				
 			}
-			sleep(0.005); // just for fun
 		} catch (Exception e) { 
 			System.out.println("Exception in ChooseAction:"+e.getMessage());
 			action=new Accept(getAgentID()); // best guess if things go wrong. 
@@ -222,13 +234,24 @@ public class JohnDoeAgent extends Agent
 	private boolean isAcceptable(double offeredUtilFromOpponent, double myOfferedUtil, double time) throws Exception
 	{
 		if(offeredUtilFromOpponent>=myOfferedUtil)
-			return true;
-		if(1-time <0.01)
-			return true;
-		expectedUtility = Paccept(myOfferedUtil,time);
+			{
+			System.out.println("Accepting cause His Offer is Better Than Mine!");
+				return true;
+			}
+		if(1-time <0.004)
+			{
+			 int pos = (int) Math.ceil(0.25*bids.size()-1);
+			 if(offeredUtilFromOpponent>=utilitySpace.getUtilityWithDiscount(bids.get(pos).bid, time))
+			 	{
+				 System.out.println("Accepting cause Time is Running Out!"); 
+				 return true;
+			 	}
+			}
+		//expectedUtility = Paccept(myOfferedUtil,time);
 		double P = Paccept(offeredUtilFromOpponent,time);
+		int pos = (int) Math.ceil(0.90*bids.size()-1);
 		//System.out.println("PAccept is "+P);
-		if (P > expectedUtility)
+		if (P > utilitySpace.getUtilityWithDiscount(bids.get(pos).bid, time) && P>0.8)
 			{
 				System.out.println("Accepting cause P is "+P+":"+offeredUtilFromOpponent+"And expectedUtility is "+expectedUtility+":"+myOfferedUtil);
 				return true;		
@@ -257,7 +280,6 @@ public class JohnDoeAgent extends Agent
 	 */
 	private Bid getBid()
 	{
-		Collections.sort(bids);
 		/*System.out.println("---------------------------------------------------------------------bids");
 		for (int i = 0; i < bids.size(); i++) {
 			System.out.println("Bid number "+i);
@@ -268,33 +290,43 @@ public class JohnDoeAgent extends Agent
 			System.out.println(utilitySpace.getUtilityWithDiscount(bids.get(i).bid,time));
 		}*/
 		double time = timeline.getTime();
-		if(1-time <0.02 && numOfOpBids>0)
-			return bestOpBid;
-		if(numOfOpDifBids>1)
+		if(1-time <0.01 && numOfOpBids>0)
 		{
-			counter--;
-			if(counter<=0)
-				counter=bids.size()-1;
-			if(counter<(bids.size())/2)
-				counter=bids.size()-1;
-			return bids.get(counter).bid;
-		}
+			 int pos = (int) Math.ceil(0.25*bids.size()-1);
+			 if(utilitySpace.getUtilityWithDiscount(bestOpBid, time)>=utilitySpace.getUtilityWithDiscount(bids.get(pos).bid, time))
+			 		{
+				 		System.out.println("Accepting cause Time is Running Out!");
+				 		return bestOpBid;
+			 		}
+			}
 		
 		if((1-time) <0.5 )
 		{
+			if(counter<0.5)
+				counter=1;
+			else
+			{
+				counter=0.5+(1.0-time);
+			}
+			int pos = (int) Math.ceil(counter*bids.size()-1);
+			if(pos==prevpos)
+			{
+				if(pos>(int)bids.size()/2)
+					pos=prevpos-1;
+					prevpos=pos;
+			}
+			return bids.get(pos).bid;
+		}
+		
+		else{
 			counter--;
 			if(counter<=0)
 				counter=bids.size()-1;
 			if(counter<(bids.size())/2)
 				counter=bids.size()-1;
-			return bids.get(counter).bid;
+			return bids.get( (int)counter).bid;
 		}
 		
-		Bid sendBid = bids.get(bids.size()-1).bid;
-		
-		//System.out.println(sendBid);
-		
-		return bids.get(bids.size()-1).bid;
 	}
 	
 	private class ComparableBid implements Comparable<ComparableBid>{
